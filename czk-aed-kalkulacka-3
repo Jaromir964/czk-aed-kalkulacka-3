@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CZK → AED Widget</title>
+
+<style>
+body{
+margin:0;
+height:100vh;
+display:flex;
+align-items:center;
+justify-content:center;
+background:#f5f7fa;
+font-family:-apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.widget{
+background:white;
+padding:40px 60px;
+border-radius:28px;
+box-shadow:0 20px 60px rgba(0,0,0,.08);
+text-align:center;
+}
+
+.rate{
+font-size:56px;
+font-weight:700;
+letter-spacing:1px;
+}
+
+.change{
+margin-top:12px;
+font-size:20px;
+font-weight:600;
+opacity:0.8;
+}
+</style>
+</head>
+
+<body>
+
+<div class="widget">
+<div class="rate" id="rate">Načítá se...</div>
+<div class="change" id="change"></div>
+</div>
+
+<script>
+
+const API_KEY = "QE7EVYZZBM5J6VUR";
+
+async function loadData(){
+const url = `https://www.alphavantage.co/query?function=FX_DAILY&from_symbol=CZK&to_symbol=AED&outputsize=compact&apikey=${API_KEY}`;
+const res = await fetch(url);
+const data = await res.json();
+
+const series = data["Time Series FX (Daily)"];
+const dates = Object.keys(series).sort();
+
+const last = parseFloat(series[dates[dates.length-1]]["4. close"]);
+const weekAgo = parseFloat(series[dates[dates.length-8]]["4. close"]);
+
+const change = ((last-weekAgo)/weekAgo*100).toFixed(2);
+
+document.getElementById("rate").innerText = last.toFixed(4);
+document.getElementById("change").innerText =
+(change >= 0 ? "+" : "") + change + " % (7 dní)";
+
+}
+
+// aktualizace každých 5 minut
+setInterval(loadData, 300000);
+
+loadData();
+
+</script>
+
+</body>
+</html>
