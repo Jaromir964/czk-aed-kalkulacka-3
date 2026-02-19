@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CZK → AED Widget</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 body{
@@ -22,7 +23,7 @@ padding:40px 60px;
 border-radius:28px;
 box-shadow:0 20px 60px rgba(0,0,0,.08);
 text-align:center;
-min-width:260px;
+min-width:280px;
 }
 
 .rate{
@@ -32,17 +33,17 @@ letter-spacing:1px;
 }
 
 .change{
-margin-top:12px;
+margin-top:10px;
 font-size:20px;
 font-weight:600;
-opacity:0.8;
 }
 
-.error{
-color:#c0392b;
-font-size:16px;
-margin-top:10px;
+canvas{
+margin-top:20px;
 }
+
+.up{ color:#16a34a; }      /* zelená */
+.down{ color:#dc2626; }    /* červená */
 </style>
 </head>
 
@@ -51,53 +52,72 @@ margin-top:10px;
 <div class="widget">
 <div class="rate" id="rate">Načítá se...</div>
 <div class="change" id="change"></div>
-<div class="error" id="error"></div>
+<canvas id="sparkline" height="80"></canvas>
 </div>
 
 <script>
 
 const API_KEY = "QE7EVYZZBM5J6VUR";
+let sparkChart;
 
 async function loadData(){
-try {
+
+try{
 
 const url = `https://www.alphavantage.co/query?function=FX_DAILY&from_symbol=CZK&to_symbol=AED&outputsize=compact&apikey=${API_KEY}`;
 const res = await fetch(url);
 const data = await res.json();
 
-if (!data["Time Series FX (Daily)"]) {
-document.getElementById("error").innerText =
-"Limit API nebo dočasná chyba.";
-return;
-}
+if (!data["Time Series FX (Daily)"]) return;
 
 const series = data["Time Series FX (Daily)"];
 const dates = Object.keys(series).sort();
 
-if (dates.length < 8) {
-document.getElementById("error").innerText =
-"Nedostatek historických dat.";
-return;
-}
+const values = dates.slice(-30).map(d => parseFloat(series[d]["4. close"]));
 
-const last = parseFloat(series[dates[dates.length-1]]["4. close"]);
-const weekAgo = parseFloat(series[dates[dates.length-8]]["4. close"]);
-
+const last = values[values.length-1];
+const weekAgo = values[values.length-8];
 const change = ((last-weekAgo)/weekAgo*100).toFixed(2);
 
-document.getElementById("rate").innerText = last.toFixed(4);
-document.getElementById("change").innerText =
-(change >= 0 ? "+" : "") + change + " % (7 dní)";
-document.getElementById("error").innerText = "";
+const rateEl = document.getElementById("rate");
+const changeEl = document.getElementById("change");
+
+rateEl.innerText = last.toFixed(4);
+changeEl.innerText = (change >= 0 ? "+" : "") + change + " % (7 dní)";
+
+changeEl.classList.remove("up","down");
+changeEl.classList.add(change >= 0 ? "up" : "down");
+
+if(sparkChart) sparkChart.destroy();
+
+sparkChart = new Chart(document.getElementById("sparkline"), {
+type: "line",
+data: {
+labels: values,
+datasets: [{
+data: values,
+borderWidth: 2,
+pointRadius: 0,
+tension: 0.4,
+borderColor: change >= 0 ? "#16a34a" : "#dc2626",
+fill: false
+}]
+},
+options: {
+responsive: true,
+plugins: { legend: { display:false }, tooltip:{ enabled:false } },
+scales: {
+x:{ display:false },
+y:{ display:false }
+}
+}
+});
+
+}catch(e){}
 
 }
-catch (err) {
-document.getElementById("error").innerText =
-"Chyba načítání dat.";
-}
-}
 
-// Aktualizace každých 10 minut (bezpečnější pro free plán)
+// aktualizace každých 10 minut
 setInterval(loadData, 600000);
 
 loadData();
